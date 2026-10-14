@@ -1163,8 +1163,11 @@ function readInline(tr) {
 const inlineTr = () => (S.inline ? document.querySelector(`#entryList tr[data-inl="${S.inline}"]`) : null);
 function startInline(id) {
   S.inline = id; S.inlineArmed = null; renderEntries();
-  const tr = inlineTr(); if (tr) { tr.querySelector('[data-if="what"]').focus(); tr.scrollIntoView({ block: "nearest" }); }
+  const tr = inlineTr(); S.inlineSnap = tr ? JSON.stringify(readInline(tr)) : null;
+  if (tr) { tr.querySelector('[data-if="what"]').focus(); tr.scrollIntoView({ block: "nearest" }); }
 }
+// 수정 칸에서 바뀐 것이 있는지
+function inlineDirty() { const tr = inlineTr(); if (!tr || S.inlineSnap == null) return false; return JSON.stringify(readInline(tr)) !== S.inlineSnap; }
 function cancelInline() { S.inline = null; S.inlineArmed = null; showNotice(""); renderEntries(); }
 function saveInline(btn) {
   const tr = btn.closest("tr"), p = cur(), id = S.inline, e = readInline(tr), msg = tr.querySelector(".imsg");
@@ -2030,10 +2033,31 @@ document.addEventListener("keydown", (ev) => { if (S.inline && ev.key === "Escap
 // 수정 중에는 다른 동작 막기
 const EDIT_MSG = "수정 중인 지출이 있습니다. 그 줄의 [저장] 또는 [취소]를 먼저 눌러 주세요.";
 function blockIfEditing(ev) {
+  // 바로 앞에서 처리한 누름의 뒤따르는 mousedown·click은 버림
+  if (S.swallow && (ev.type === "mousedown" || ev.type === "click")) {
+    if (Date.now() - S.swallow < 1000) { ev.preventDefault(); ev.stopPropagation(); ev.stopImmediatePropagation?.(); if (ev.type === "click") S.swallow = 0; return; }
+    S.swallow = 0;
+  }
   if (!S.inline) return;
   const tr = inlineTr(); if (!tr) { S.inline = null; return; }
   const t = ev.target; if (!(t instanceof Element)) return;
   if (tr.contains(t)) return;
+  if (!inlineDirty()) {
+    // 바뀐 것이 없으면 수정을 닫고, 누른 동작을 그대로 진행
+    if (!$("entryList").contains(t)) { cancelInline(); return; }
+    if (ev.type === "focusin") return;
+    if (!t.closest("tr[data-row]")) { cancelInline(); return; }
+    ev.preventDefault(); ev.stopPropagation(); ev.stopImmediatePropagation?.();
+    const ctl = t.closest("[data-st],[data-sel],[data-cat],[data-rm],[data-edit]"), rowId = t.closest("tr[data-row]").dataset.row;
+    const attr = ctl ? ["data-st", "data-sel", "data-cat", "data-rm", "data-edit"].find((a) => ctl.hasAttribute(a)) : null;
+    cancelInline(); S.swallow = 0;
+    if (attr && attr !== "data-edit") {
+      const nel = $("entryList").querySelector(`[${attr}="${CSS.escape(ctl.getAttribute(attr))}"]`);
+      if (nel) { if (nel.tagName === "SELECT") { nel.focus(); try { nel.showPicker(); } catch {} } else nel.click(); }
+    } else startInline(rowId);
+    S.swallow = ev.type === "click" ? 0 : Date.now();
+    return;
+  }
   if (!t.closest("button, a, select, input, textarea, label, summary, [tabindex], tr[data-row]")) return;
   ev.preventDefault(); ev.stopPropagation(); ev.stopImmediatePropagation?.();
   if (ev.type === "focusin" && t.blur) t.blur();
@@ -2045,7 +2069,7 @@ function blockIfEditing(ev) {
   setTimeout(() => tr.querySelector('[data-if="what"]')?.focus({ preventScroll: true }), 50);
 }
 for (const type of ["pointerdown", "mousedown", "click", "focusin"]) document.addEventListener(type, blockIfEditing, true);
-addEventListener("beforeunload", (ev) => { if (S.inline) { ev.preventDefault(); ev.returnValue = ""; } });
+addEventListener("beforeunload", (ev) => { if (S.inline && inlineDirty()) { ev.preventDefault(); ev.returnValue = ""; } });
 $("entryList").addEventListener("change", (ev) => {
   const s = ev.target.closest("select[data-cat]"); if (!s) return;
   const e = cur().entries.find((x) => x.id === s.dataset.cat); if (!e) return;
