@@ -274,6 +274,9 @@ table.grid.ent td:last-child .btn{margin:1px 0}
 table.grid.ent th:last-child{background:var(--gh)}
 table.grid.ent tbody tr:hover td:last-child{background:var(--blue-ll)}
 table.grid.ent tr.inl td:last-child{background:#fffbe6}
+table.grid.ent tr.rowed{cursor:pointer}
+table.grid.ent tr.rowed:hover td{background:var(--blue-ll)}
+table.grid.ent tr.rowed input,table.grid.ent tr.rowed select,table.grid.ent tr.rowed button{cursor:pointer}
 .inl .acts .btn{width:100%}
 .inl .two{margin-top:4px;display:grid;grid-template-columns:1fr 1fr;gap:4px}
 .inl .amt{font-weight:700;display:block;text-align:right;margin-bottom:4px}
@@ -476,7 +479,7 @@ span.st{cursor:default}
         </div>
         <div class="gwrap">
           <table class="grid ent">
-            <thead><tr><th style="width:34px"><input type="checkbox" id="selAll" aria-label="보이는 지출 모두 선택"></th><th style="width:36px">순</th><th style="width:102px">지출일자</th><th style="width:68px">항목</th><th style="width:102px">세부 항목</th><th>품목·내용</th><th style="width:90px">단가</th><th style="width:112px">수량</th><th style="width:92px">집행금액</th><th style="width:70px">결제</th><th style="width:56px">증빙</th><th style="width:92px">상태</th><th style="width:118px">관리</th></tr></thead>
+            <thead><tr><th style="width:34px"><input type="checkbox" id="selAll" aria-label="보이는 지출 모두 선택"></th><th style="width:92px">상태</th><th style="width:36px">순</th><th style="width:102px">지출일자</th><th style="width:68px">항목</th><th style="width:102px">세부 항목</th><th>품목·내용</th><th style="width:90px">단가</th><th style="width:112px">수량</th><th style="width:92px">집행금액</th><th style="width:70px">결제</th><th style="width:56px">증빙</th><th style="width:118px">관리</th></tr></thead>
             <tbody id="entryList"></tbody>
           </table>
         </div>
@@ -1139,7 +1142,7 @@ function inlineRow(p, e, no) {
   const it = p.items.find((x) => x.id === e.itemId);
   const v = (x) => esc(blank(x) ? "" : x), money = (x) => (blank(x) ? "" : won(x));
   const qp = (k) => `<div class="qp"><input class="r" inputmode="decimal" data-if="q${k}" value="${v(e["q" + k])}" placeholder="수량" aria-label="수량${k}"><input data-if="u${k}" list="unitList" value="${v(e["u" + k])}" placeholder="단위" aria-label="단위${k}"></div>`;
-  return `<tr class="inl" data-inl="${e.id}"><td></td><td class="c num">${no}</td>
+  return `<tr class="inl" data-inl="${e.id}"><td></td><td class="c">${stBadge(e, false)}</td><td class="c num">${no}</td>
     <td><input type="date" data-if="date" value="${v(e.date)}" aria-label="지출일자"></td>
     <td><select data-if="itemId" aria-label="항목">${p.items.map((x) => `<option value="${x.id}"${x.id === e.itemId ? " selected" : ""}>${esc(x.name)}</option>`).join("")}</select></td>
     <td><select data-if="cat" aria-label="세부 항목">${catOptions(p, e.cat || "")}</select></td>
@@ -1149,7 +1152,7 @@ function inlineRow(p, e, no) {
     <td><span class="amt num" data-iamt>${won(amountOf(e))}</span><input class="r" inputmode="numeric" data-if="paid" data-money value="${money(e.paid)}" placeholder="실제결제액" aria-label="실제결제액"></td>
     <td><select data-if="pay" aria-label="결제방법">${["학교카드", "계좌이체", "현금", "기타"].map((x) => `<option${x === e.pay ? " selected" : ""}>${x}</option>`).join("")}</select></td>
     <td class="c"><label class="chk"><input type="checkbox" data-if="proof"${e.proof ? " checked" : ""} aria-label="영수증 보관"></label></td>
-    <td class="c">${stBadge(e, false)}</td><td class="c"><div class="acts"><button class="btn sm pri" type="button" data-isave="${e.id}">저장</button><button class="btn sm" type="button" data-icancel="${e.id}">취소</button></div><span class="imsg" aria-live="polite"></span></td></tr>`;
+    <td class="c"><div class="acts"><button class="btn sm pri" type="button" data-isave="${e.id}">저장</button><button class="btn sm" type="button" data-icancel="${e.id}">취소</button></div><span class="imsg" aria-live="polite"></span></td></tr>`;
 }
 function readInline(tr) {
   const g = (f) => tr.querySelector(`[data-if="${f}"]`), v = (f) => (g(f) ? g(f).value : "");
@@ -1229,12 +1232,12 @@ function renderEntries() {
       if (sf && (sf === "not2" ? stOf(e) === 2 : stOf(e) !== Number(sf))) return;
       no++; sum += amountOf(e);
       if (S.inline === e.id) { rows.push(inlineRow(p, e, no)); return; }
-      rows.push(`<tr class="${S.flash === e.id ? "flash" : ""}"><td><input type="checkbox" data-sel="${e.id}"${S.sel.has(e.id) ? " checked" : ""} aria-label="선택"></td><td class="c num">${no}</td><td class="c num dt">${esc(e.date || "-")}</td><td class="c">${esc(it.name)}</td>
+      rows.push(`<tr class="rowed${S.flash === e.id ? " flash" : ""}" data-row="${e.id}" title="행을 누르면 수정합니다"><td><input type="checkbox" data-sel="${e.id}"${S.sel.has(e.id) ? " checked" : ""} aria-label="선택"></td><td class="c">${stBadge(e, true)}</td><td class="c num">${no}</td><td class="c num dt">${esc(e.date || "-")}</td><td class="c">${esc(it.name)}</td>
         <td><select class="cat-sel${e.cat ? "" : " none"}" data-cat="${e.id}" aria-label="세부 항목 바꾸기">${catOptions(p, e.cat)}</select></td>
         <td class="desc">${esc(e.what)}${e.vendor ? ` <span class="msg">- ${esc(e.vendor)}</span>` : ""}${e.note ? ` <span class="msg">(${esc(e.note)})</span>` : ""}${e.eduAt ? `<span class="tag edu" title="${esc(e.eduAt)}에 에듀파인 파일로 내려받음">에듀파인 ${esc(e.eduAt.slice(5).replace("-", "/"))}</span>` : ""}</td>
         <td class="n num">${!blank(e.price) ? won(e.price) : derivedPrice(e) !== null ? `<span class="msg" title="실제결제액 ÷ 수량으로 계산">${won(derivedPrice(e))}</span>` : "-"}</td><td class="c">${qty(e) || "-"}</td><td class="n num"><b>${won(amountOf(e))}</b></td>
         <td class="c">${esc(e.pay || "")}</td><td class="c">${e.proof ? '<span class="tag ok">보관</span>' : '<span class="tag no">없음</span>'}</td>
-        <td class="c">${stBadge(e, true)}</td><td class="c"><button class="btn sm" type="button" data-edit="${e.id}">수정</button> <button class="btn sm del" type="button" data-rm="${e.id}">삭제</button></td></tr>`);
+        <td class="c"><button class="btn sm" type="button" data-edit="${e.id}">수정</button> <button class="btn sm del" type="button" data-rm="${e.id}">삭제</button></td></tr>`);
     });
   }
   $("entryList").innerHTML = rows.join("") || `<tr><td colspan="13" class="empty">${p.entries.length ? "고른 조건에 맞는 지출이 없습니다." : "등록된 지출이 없습니다. 위에서 지출을 등록하세요."}</td></tr>`;
@@ -2031,7 +2034,7 @@ function blockIfEditing(ev) {
   const tr = inlineTr(); if (!tr) { S.inline = null; return; }
   const t = ev.target; if (!(t instanceof Element)) return;
   if (tr.contains(t)) return;
-  if (!t.closest("button, a, select, input, textarea, label, summary, [tabindex]")) return;
+  if (!t.closest("button, a, select, input, textarea, label, summary, [tabindex], tr[data-row]")) return;
   ev.preventDefault(); ev.stopPropagation(); ev.stopImmediatePropagation?.();
   if (ev.type === "focusin" && t.blur) t.blur();
   if (ev.type !== "click") return;
@@ -2172,6 +2175,8 @@ document.querySelector("#entryForm").addEventListener("keydown", (ev) => { if (e
 $("entryList").addEventListener("click", (ev) => {
   const p = cur();
   const ed = ev.target.closest("button[data-edit]"); if (ed) return startInline(ed.dataset.edit);
+  const row = ev.target.closest("tr[data-row]");
+  if (row && !ev.target.closest("input,select,button,label,a,textarea") && !String(window.getSelection && window.getSelection()).trim()) return startInline(row.dataset.row);
   const sv = ev.target.closest("button[data-isave]"); if (sv) return saveInline(sv);
   const cc = ev.target.closest("button[data-icancel]"); if (cc) return cancelInline();
   const rm = ev.target.closest("button[data-rm]"); if (!rm) return;
