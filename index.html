@@ -286,6 +286,16 @@ tr.flash td{animation:flash 1.8s ease-out}
 @media (prefers-reduced-motion:reduce){tr.inl.pulse td,tr.flash td{animation:none}}
 @media (pointer:coarse){.inl input,.inl select{height:36px;font-size:14px}}
 #pasteText{width:100%;border:1px solid #c3c9d2;border-radius:2px;padding:8px 10px;font:inherit;font-size:13px;resize:vertical;background:#fff}
+#pasteSec.drop{outline:2px dashed #1f62b3;outline-offset:2px;background:#f2f7fd}
+.ocr-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:6px}
+.ocr-tip{font-size:12px;color:#6b7684;margin-left:auto}
+.ocr-msg{font-size:13px;color:#333}.ocr-msg:empty{display:none}.ocr-msg.ok{color:#0b6b3a}.ocr-msg.warn{color:#9a5b00}.ocr-msg.no{color:#c62828}
+.ocr-msg .spin{display:inline-block;width:12px;height:12px;border:2px solid #b9c6d6;border-top-color:#1f62b3;border-radius:50%;margin-right:6px;vertical-align:-2px;animation:ocrspin .8s linear infinite}
+@keyframes ocrspin{to{transform:rotate(360deg)}}
+.ocr-thumbs{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.ocr-th{border:1px solid #c3c9d2;background:#fff;padding:2px;cursor:zoom-in;border-radius:2px}
+.ocr-th img{display:block;max-height:90px;max-width:220px}
+.ocr-th.big{cursor:zoom-out;flex-basis:100%}.ocr-th.big img{max-height:none;max-width:100%}
 .paste-sum{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;font-size:13px;margin-top:4px}
 table.grid.pg td input{min-width:0}
 table.grid.pg td.ck{text-align:center}
@@ -442,7 +452,10 @@ span.st{cursor:default}
         <div class="sec-h"><h2>붙여넣기로 입력<span class="sub">쇼핑몰 장바구니·주문 내역을 복사해서 붙여 넣으면 지출로 바꿉니다</span></h2>
           <div class="btns"><button class="btn" id="pasteClear" type="button">지우기</button></div>
         </div>
-        <textarea id="pasteText" rows="4" placeholder="쇼핑몰(11번가·쿠팡·네이버 등) 장바구니나 주문 상세 화면에서 상품 부분을 드래그해 복사(Ctrl+C)한 뒤 여기에 붙여넣기(Ctrl+V) 하세요."></textarea>
+        <textarea id="pasteText" rows="4" placeholder="쇼핑몰(11번가·쿠팡·네이버 등) 장바구니나 주문 상세 화면에서 상품 부분을 드래그해 복사(Ctrl+C)한 뒤 여기에 붙여넣기(Ctrl+V) 하세요.&#10;화면 캡처 그림을 붙여 넣거나 이 칸에 끌어다 놓아도 됩니다."></textarea>
+        <div class="ocr-bar"><button class="btn" id="ocrBtn" type="button">그림에서 읽기</button><input type="file" id="ocrFile" accept="image/*" multiple hidden>
+          <span class="ocr-msg" id="ocrMsg"></span><span class="ocr-tip">캡처 그림(여러 장 가능)도 넣을 수 있습니다 · 그림은 이 기기 안에서만 읽고 어디에도 보내지 않습니다 · 인터넷 필요</span></div>
+        <div class="ocr-thumbs" id="ocrThumbs" hidden></div>
         <div id="pasteResult"></div>
       </section>
       <section class="sec">
@@ -1550,7 +1563,7 @@ const CartParse = (() => {
       }
       if (total === null) for (let k = i + 1; k < Math.min(sumStart, i + 9); k++) { if (/^배송비/.test(C[k]) || qtyAt(k) !== null) break; const p = priceAt(k); if (p !== null) { total = p; tAt = k; break; } }
       // 가격이 수량 앞에 오는 형식 (예: 판매가 → 수량)
-      if (total === null) for (let k = i - 1; k >= Math.max(prevEnd, i - 4); k--) { const p = priceAt(k); if (p !== null) { total = p; tAt = k; break; } }
+      if (total === null) for (let k = i - 1; k >= Math.max(prevEnd, i - 4); k--) { if (/^배송비/.test(C[k - 1] || "") || /^배송비/.test(C[k])) continue; const p = priceAt(k); if (p !== null) { total = p; tAt = k; break; } }
       if (total === null) continue;
       let name = "", option = "", nAt = -1;
       for (let k = Math.min(i, tAt) - 1; k >= Math.max(prevEnd, i - 12); k--) {
@@ -1614,7 +1627,7 @@ function mergeSame(items) {
   return out.map((x) => ({ ...x, option: x.options.join("·") }));
 }
 let MALL = "";
-function mallOf(t) { return /11st\.co\.kr|11번가|할인모음가|스토어\s*찜하기|도착예정 도움말|11pay/i.test(t) ? "11번가" : /s2b\.kr|학교장터|S2B/i.test(t) ? "S2B" : ""; }
+function mallOf(t) { return /11st\.co\.kr|11번가|할인모음가|스토어\s*찜하기|도착예정 도움말|11pay|쿠폰변경|약속도착/i.test(t) ? "11번가" : /s2b\.kr|학교장터|S2B/i.test(t) ? "S2B" : ""; }
 function buildPasteRows(r) {
   const merge = $("pMerge") ? $("pMerge").value === "merge" : true;
   const its = merge ? mergeSame(r.items) : r.items;
@@ -1690,7 +1703,7 @@ function addPasteEntries() {
     p.entries.push(e);
   }
   const n = rows.length;
-  $("pasteText").value = ""; $("pasteResult").innerHTML = ""; pasteRows = [];
+  $("pasteText").value = ""; $("pasteResult").innerHTML = ""; pasteRows = []; ocrClear();
   dirty(); refreshNumbers();
   showNotice(`붙여넣은 내용으로 지출 ${n}건을 등록했습니다. 지출 내역에서 확인하세요.`);
 }
@@ -1717,6 +1730,186 @@ $("pasteResult").addEventListener("change", (ev) => {
   const tr = ev.target.closest("tr[data-pi]"); if (tr && ev.target.dataset.pf === "vendor") pasteRows[+tr.dataset.pi].vendor = ev.target.value;
 });
 $("pasteResult").addEventListener("click", (ev) => { if (ev.target.id === "pAdd") addPasteEntries(); });
+
+/* ===== 이미지 글자 인식 결과 → 읽는 순서대로 줄 만들기 ===== */
+const OcrLayout = (() => {
+  const med = (a) => { if (!a.length) return 0; const s = [...a].sort((x, y) => x - y); return s[s.length >> 1]; };
+  // 겹치는 구간 사이의 빈틈 찾기
+  function gaps(items, lo, hi) {
+    const iv = items.map((w) => [lo(w), hi(w)]).sort((a, b) => a[0] - b[0]);
+    const out = []; let end = iv.length ? iv[0][1] : 0;
+    for (let i = 1; i < iv.length; i++) { if (iv[i][0] > end) out.push({ at: (end + iv[i][0]) / 2, size: iv[i][0] - end }); end = Math.max(end, iv[i][1]); }
+    return out;
+  }
+  function splitAt(ws, cuts, key) { const parts = cuts.map(() => []); parts.push([]); for (const w of ws) { let k = 0; while (k < cuts.length && key(w) > cuts[k]) k++; parts[k].push(w); } return parts.filter((p) => p.length); }
+  function lines(ws, h) {
+    const sorted = [...ws].sort((a, b) => (a.y0 + a.y1) / 2 - (b.y0 + b.y1) / 2);
+    const rows = [];
+    for (const w of sorted) { const cy = (w.y0 + w.y1) / 2; const r = rows.find((r) => Math.abs(r.cy - cy) < h * 0.55); if (r) { r.ws.push(w); r.cy = (r.cy * (r.ws.length - 1) + cy) / r.ws.length; } else rows.push({ cy, ws: [w] }); }
+    rows.sort((a, b) => a.cy - b.cy);
+    const out = rows.map((r) => { r.ws.sort((a, b) => a.x0 - b.x0); let s = ""; let px = null; for (const w of r.ws) { if (px !== null) { const g = w.x0 - px; s += g > h * 1.6 ? "  " : g > h * 0.36 || !(/[가-힣]$/.test(s) && /^[가-힣]/.test(w.text)) ? " " : ""; } s += w.text; px = w.x1; }
+      return { s, x0: r.ws[0].x0, x1: r.ws[r.ws.length - 1].x1, y0: Math.min(...r.ws.map((w) => w.y0)), y1: Math.max(...r.ws.map((w) => w.y1)) }; });
+    // 줄바꿈된 상품명 이어 붙이기: 윗줄이 오른쪽 끝까지 차 있고 아랫줄이 같은 곳에서 시작
+    const right = Math.max(...out.map((l) => l.x1));
+    const res = [];
+    for (const l of out) {
+      const p = res[res.length - 1];
+      const nameish = (t) => /[가-힣]{2,}/.test(t) && !/\d\s*원|^옵션|^\(|도착|배송|최저가|주문합계/.test(t);
+      if (p && nameish(p.s) && nameish(l.s) && p.x1 >= right - h * 1.2 && Math.abs(l.x0 - p.x0) < h * 0.8 && l.y0 - p.y1 < h * 0.9 && l.x1 < right - h * 1.2 + 1e9) { p.s += " " + l.s; p.x1 = Math.max(p.x1, l.x1); p.y1 = l.y1; p.joined = true; }
+      else res.push({ ...l });
+    }
+    return res.map((l) => l.s);
+  }
+  // 큰 가로 틈(상품 사이) → 세로 틈(열) → 줄
+  function cut(ws, h, depth, Y = 2.6) {
+    if (ws.length <= 1 || depth > 12) return lines(ws, h);
+    const yg = gaps(ws, (w) => w.y0, (w) => w.y1).filter((g) => g.size >= h * Y);
+    if (yg.length) return splitAt(ws, yg.map((g) => g.at), (w) => (w.y0 + w.y1) / 2).flatMap((p) => cut(p, h, depth + 1, Y));
+    const xg = gaps(ws, (w) => w.x0, (w) => w.x1).filter((g) => g.size >= h * 2.4);
+    if (xg.length) return splitAt(ws, xg.map((g) => g.at), (w) => (w.x0 + w.x1) / 2).flatMap((p) => cut(p, h, depth + 1, Y));
+    const yg2 = gaps(ws, (w) => w.y0, (w) => w.y1).filter((g) => g.size >= h * 1.4);
+    if (yg2.length) return splitAt(ws, yg2.map((g) => g.at), (w) => (w.y0 + w.y1) / 2).flatMap((p) => cut(p, h, depth + 1, Y));
+    return lines(ws, h);
+  }
+  // 자주 틀리는 글자 바로잡기
+  function fixLine(s) {
+    return s
+      .replace(/(\d)\s*[윈왼인완월원줘웜읜뭔]\b/g, "$1원").replace(/(\d)\s*[윈왼인완월줘웜읜뭔](?=[\s)]|$)/g, "$1원")
+      .replace(/(\d{1,3})[.](\d{3})(?=원|\b)/g, "$1,$2")
+      .replace(/(\d)\s+,\s*(\d{3})/g, "$1,$2")
+      .replace(/[（(]\s*(\d{1,4})\s*(?:[개게깨캐기]|7[4H]|ㅐ)\s*[)）]/g, "($1개)")
+      .replace(/[（(]\s*(\d{1,3})(?:74|7H)\s*[)）]/g, "($1개)")
+      .replace(/^(\d{1,3}(?:,\d{3})+)$/, "$1원")
+      .replace(/^(?:2M|읍션|옵선|옵센|음션)\s/, "옵션 ")
+      .replace(/쿠\s*[폰푼분풍]?\s*[변번]\s*[경겅정]/g, "쿠폰변경")
+      .replace(/(\d{1,3}(?:,\d{3})*,\d{3})[2오모]\b/g, "$1원").replace(/옵[션선]\s*[변번]\s*[경겅]/g, "옵션변경")
+      .replace(/^[|｜!¦]+\s*/, "").replace(/\s*[|｜]+$/, "")
+      .replace(/\s+/g, " ").trim();
+  }
+  // 수량 칸: "1  쿠폰변경" 처럼 숫자 한 개와 버튼 글자만 있는 줄
+  function qtyLine(s) { const m = /^(\d{1,3})\s+(쿠폰변경|옵션변경)$/.exec(s); return m ? m[1] + m[2] : s; }
+  function post(ls) {
+    const out = [];
+    ls.forEach((s, i) => {
+      if (/주문합계|합계/.test(s) && /원/.test(s)) { out.push(...s.split(/\s+[+\-=＝]\s*|\s*[=＝]\s*|\s{2,}|(?<=\d\s?원)\s+/).map((x) => x.trim()).filter(Boolean)); return; }
+      // 수량 '2'를 '그'로 읽는 경우: 바로 아래(3줄 안)에 쿠폰변경
+      if (/^[그ㄹ己Z]$/.test(s) && ls.slice(i + 1, i + 4).some((x) => /쿠폰변경|옵션변경/.test(x))) { out.push("2"); return; }
+      out.push(s);
+    });
+    return out;
+  }
+  function toText(words, Y = 2.6) {
+    const ws = words.filter((w) => w && w.text && w.text.trim() && w.bbox).map((w) => ({ text: w.text.trim(), x0: w.bbox.x0, y0: w.bbox.y0, x1: w.bbox.x1, y1: w.bbox.y1, conf: w.confidence ?? 100 }))
+      .filter((w) => !(w.conf < 25 && !/[\d가-힣]{2,}/.test(w.text)) && !/^[^\w가-힣()]+$/.test(w.text));
+    if (!ws.length) return "";
+    const h0 = med(ws.filter((w) => /[가-힣]/.test(w.text) && w.conf >= 80).map((w) => w.y1 - w.y0)) || med(ws.map((w) => w.y1 - w.y0)) || 12;
+    // 그림·아이콘에서 나온 엉뚱한 글자 걸러내기
+    const good = ws.filter((w) => w.conf >= 15 && ((w.y1 - w.y0) <= h0 * 1.8 || (w.conf >= 70 && (w.y1 - w.y0) <= h0 * 2.6 && /\d{2,}|[가-힣]{2,}/.test(w.text))) && !(w.conf < 40 && !/[가-힣]{2,}|\d{2,}|[가-힣]\d|\d원/.test(w.text)));
+    const h = h0; if (!good.length) return "";
+    return post(cut(good, h, 0, Y).map(fixLine).map(qtyLine).filter((s) => s && !/^[^\w가-힣]{1,3}$/.test(s) && !/^[A-Za-z]{1,2}( [A-Za-z0-9]{1,2})?$/.test(s))).join("\n");
+  }
+  // 줄 나누는 기준을 몇 가지로 바꿔 보고, 상품을 가장 많이 찾은 결과를 고름
+  function best(words, score) {
+    let top = null;
+    for (const Y of [2.6, 2.1, 3.2]) { const t = toText(words, Y); const sc = score ? score(t) : 0; if (!top || sc > top.sc) top = { t, sc }; }
+    return top.t;
+  }
+  return { toText, best, fixLine };
+})();
+
+
+/* ---------- 그림(캡처)에서 글자 읽기 — 인터넷 필요, 그림은 이 기기 안에서만 처리 ---------- */
+const OCR_JS = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
+let ocrWorkerP = null, ocrBusy = false;
+function ocrMsg(html, kind) { const m = $("ocrMsg"); m.innerHTML = html; m.className = "ocr-msg" + (kind ? " " + kind : ""); }
+function loadScript(src) {
+  return new Promise((ok, no) => { const s = document.createElement("script"); s.src = src; s.async = true; s.onload = ok; s.onerror = () => { s.remove(); no(new Error("load")); }; document.head.appendChild(s); });
+}
+let ocrStage = "";
+function ocrWorker() {
+  if (ocrWorkerP) return ocrWorkerP;
+  ocrWorkerP = (async () => {
+    if (!window.Tesseract) await loadScript(OCR_JS);
+    const w = await Tesseract.createWorker(["kor", "eng"], 1, {
+      logger: (m) => { if (!ocrBusy) return; const pct = Math.round((m.progress || 0) * 100);
+        if (/loading|load/i.test(m.status) && !/recogniz/.test(m.status)) ocrMsg(`<span class="spin"></span>글자 읽기 준비 중… (처음 한 번은 한글 사전을 내려받느라 10초쯤 걸립니다) ${pct ? pct + "%" : ""}`);
+        else if (/recogniz/.test(m.status)) ocrMsg(`<span class="spin"></span>${ocrStage}글자 읽는 중… ${pct}%`); },
+    });
+    await w.setParameters({ tessedit_pageseg_mode: "11", preserve_interword_spaces: "1" });
+    return w;
+  })();
+  ocrWorkerP.catch(() => { ocrWorkerP = null; });
+  return ocrWorkerP;
+}
+// 작은 화면 캡처는 글자가 작아서 키우고, 흑백·대비를 올려 읽기 쉽게
+function ocrPrepare(file) {
+  return new Promise((ok, no) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const w = img.naturalWidth, h = img.naturalHeight;
+      let sc = Math.min(3, Math.max(1, Math.ceil(3000 / w)));
+      sc = Math.max(1, Math.min(sc, Math.sqrt(24e6 / (w * h))));
+      const c = document.createElement("canvas"); c.width = Math.round(w * sc); c.height = Math.round(h * sc);
+      const g = c.getContext("2d"); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = "high";
+      g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+      const d = g.getImageData(0, 0, c.width, c.height), a = d.data; let lo = 255, hi = 0;
+      for (let i = 0; i < a.length; i += 4) { const v = (a[i] * 299 + a[i + 1] * 587 + a[i + 2] * 114) / 1000; a[i] = v; if (v < lo) lo = v; if (v > hi) hi = v; }
+      const k = hi > lo ? 255 / (hi - lo) : 1;
+      for (let i = 0; i < a.length; i += 4) { const v = (a[i] - lo) * k; a[i] = a[i + 1] = a[i + 2] = v; }
+      g.putImageData(d, 0, 0);
+      ok({ canvas: c, url });
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); no(new Error("img")); };
+    img.src = url;
+  });
+}
+async function ocrFiles(files) {
+  files = [...files].filter((f) => f && /^image\//.test(f.type));
+  if (!files.length) return;
+  if (ocrBusy) { ocrMsg("앞의 그림을 아직 읽고 있습니다. 끝난 뒤 다시 넣어 주세요.", "warn"); return; }
+  ocrBusy = true; $("ocrBtn").disabled = true;
+  ocrMsg(`<span class="spin"></span>글자 읽기 준비 중…`);
+  const texts = [];
+  try {
+    const w = await ocrWorker();
+    for (let i = 0; i < files.length; i++) {
+      ocrStage = files.length > 1 ? `그림 ${i + 1}/${files.length} · ` : "";
+      const { canvas, url } = await ocrPrepare(files[i]);
+      const r = await w.recognize(canvas, {}, { blocks: true, text: true });
+      const words = [];
+      for (const b of r.data.blocks || []) for (const p of b.paragraphs || []) for (const l of p.lines || []) for (const x of l.words || []) words.push(x);
+      texts.push(OcrLayout.best(words, (t) => { try { const r = CartParse.parse(t); return r.items.length * 10 + r.items.filter((x) => x.qty > 0 && x.total > 0).length + (r.ships.length ? 1 : 0); } catch { return 0; } }));
+      ocrThumb(url);
+    }
+  } catch (e) {
+    ocrBusy = false; $("ocrBtn").disabled = false;
+    ocrMsg(navigator.onLine === false || /load/.test(e && e.message) ? "글자 읽기 프로그램을 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 다시 해 주세요. (그림 읽기는 인터넷이 필요합니다)" : "그림을 읽지 못했습니다. 다른 캡처로 다시 해 보거나 글자를 복사해 붙여 넣어 주세요.", "no");
+    return;
+  }
+  ocrBusy = false; $("ocrBtn").disabled = false;
+  const add = texts.filter(Boolean).join("\n");
+  if (!add.trim()) { ocrMsg("그림에서 글자를 찾지 못했습니다. 상품명·수량·금액이 잘 보이게 캡처해 주세요.", "no"); return; }
+  const ta = $("pasteText"); ta.value = (ta.value.trim() ? ta.value.replace(/\s+$/, "") + "\n" : "") + add;
+  renderPaste();
+  const found = LAST_PARSE ? LAST_PARSE.items.length : 0;
+  ocrMsg(found ? `그림에서 상품 <b>${found}</b>개를 읽었습니다. 그림 글자 읽기는 틀릴 수 있으니 <b>상품명·수량·금액을 아래 표에서 그림과 꼭 맞춰 보세요.</b>` : "글자는 읽었지만 상품을 찾지 못했습니다. 위 칸의 글자를 고치거나, 상품명·수량·금액이 함께 보이게 다시 캡처해 주세요.", found ? "ok" : "warn");
+}
+function ocrThumb(url) {
+  const box = $("ocrThumbs"); const a = document.createElement("button"); a.type = "button"; a.className = "ocr-th"; a.title = "누르면 크게 보기";
+  a.innerHTML = `<img src="${url}" alt="읽은 그림">`; box.appendChild(a); box.hidden = false;
+}
+$("ocrThumbs").addEventListener("click", (ev) => { const b = ev.target.closest(".ocr-th"); if (b) b.classList.toggle("big"); });
+$("ocrBtn").addEventListener("click", () => $("ocrFile").click());
+$("ocrFile").addEventListener("change", (ev) => { ocrFiles(ev.target.files); ev.target.value = ""; });
+$("pasteSec").addEventListener("paste", (ev) => {
+  const fs = [...(ev.clipboardData && ev.clipboardData.items || [])].filter((it) => it.kind === "file" && /^image\//.test(it.type)).map((it) => it.getAsFile());
+  if (fs.length) { ev.preventDefault(); ocrFiles(fs); }
+});
+["dragenter", "dragover"].forEach((t) => $("pasteSec").addEventListener(t, (ev) => { if ([...(ev.dataTransfer?.types || [])].includes("Files")) { ev.preventDefault(); $("pasteSec").classList.add("drop"); } }));
+["dragleave", "drop"].forEach((t) => $("pasteSec").addEventListener(t, (ev) => { if (t === "dragleave" && $("pasteSec").contains(ev.relatedTarget)) return; $("pasteSec").classList.remove("drop"); }));
+$("pasteSec").addEventListener("drop", (ev) => { if (ev.dataTransfer?.files?.length) { ev.preventDefault(); ocrFiles(ev.dataTransfer.files); } });
+function ocrClear() { const b = $("ocrThumbs"); b.querySelectorAll("img").forEach((i) => URL.revokeObjectURL(i.src)); b.innerHTML = ""; b.hidden = true; if (!ocrBusy) ocrMsg(""); }
+$("pasteClear").addEventListener("click", ocrClear);
 
 /* ---------- 엑셀 내보내기 ---------- */
 const XF = (size, bold) => ({ name: "맑은 고딕", size, bold: !!bold });
