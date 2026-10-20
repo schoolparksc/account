@@ -109,6 +109,7 @@ main{padding:18px 24px 40px;min-width:0;display:flex;flex-direction:column;gap:1
 .fv input::placeholder{color:#a4abb6}
 .fv input.q::placeholder{color:#b5bcc6}
 .fv input.q.ref::placeholder{color:#8e98a6;font-style:italic}
+tr.inl input.ref::placeholder{color:#8e98a6;font-style:italic}
 .fv .unit{flex:0 0 72px}
 .qrow{gap:4px}
 .fv input.q{flex:0 0 72px;width:72px}
@@ -275,6 +276,9 @@ table.grid.ent th:last-child{background:var(--gh)}
 table.grid.ent tbody tr:hover td:last-child{background:var(--blue-ll)}
 table.grid.ent tr.inl td:last-child{background:#fffbe6}
 table.grid.ent tr.rowed{cursor:pointer}
+.btn.delx{border-color:#d9a3a3;color:#c62828;background:#fff}.btn.delx:not(:disabled){background:#c62828;border-color:#c62828;color:#fff}.btn.delx:not(:disabled):hover{background:#a51f1f}
+.tsep{display:inline-block;width:1px;height:22px;background:#c3c9d2;margin:0 2px;vertical-align:middle}
+.catadd{display:flex;gap:4px}.catadd input{min-width:0;flex:1}
 table.grid.ent tr.rowed:hover td{background:var(--blue-ll)}
 table.grid.ent tr.rowed input,table.grid.ent tr.rowed select,table.grid.ent tr.rowed button{cursor:pointer}
 .inl .acts .btn{width:100%}
@@ -405,7 +409,7 @@ span.st{cursor:default}
 
     <!-- 2. 지출 등록 -->
     <div id="tab-ledger" hidden style="display:flex;flex-direction:column;gap:14px">
-      <section class="sec" id="entryForm">
+      <section class="sec" id="entryForm" hidden>
         <div class="sec-h"><h2 id="formTitle">지출 등록</h2>
           <div class="btns"><span class="msg" id="eErr" style="color:var(--red)"></span><button class="btn" id="eCancel" type="button">초기화</button><button class="btn pri" id="eSave" type="button">저장</button></div>
         </div>
@@ -462,7 +466,7 @@ span.st{cursor:default}
         </div>
         <div class="selbar" id="selBar">
           <span>선택 <b id="selCount">0</b>건 · 합계 <b class="num" id="selSum">0</b>원</span><span id="selWarn"></span>
-          <div class="btns"><span class="msg" id="eduMsg"></span><button class="btn" id="selClear" type="button">선택 해제</button><button class="btn pri" id="eduBtn" type="button">에듀파인 업로드 파일 받기 (.xls)</button></div>
+          <div class="btns"><span class="msg" id="eduMsg"></span><button class="btn" id="undoBtn" type="button" disabled>↶ 되돌리기</button><button class="btn pri" id="addRowBtn" type="button">+ 행 추가</button><button class="btn delx" id="delRowsBtn" type="button" disabled>행 삭제</button><span class="tsep" aria-hidden="true"></span><button class="btn" id="selClear" type="button">선택 해제</button><button class="btn pri" id="eduBtn" type="button">에듀파인 업로드 파일 받기 (.xls)</button></div>
         </div>
         <div class="gwrap">
           <table class="grid ent">
@@ -1156,14 +1160,14 @@ function inlineRow(p, e, no) {
   return `<tr class="inl" data-inl="${e.id}"><td></td><td class="c">${stBadge(e, false)}</td><td class="c num">${no}</td>
     <td><input type="date" data-if="date" value="${v(e.date)}" aria-label="지출일자"></td>
     <td><select data-if="itemId" aria-label="항목">${p.items.map((x) => `<option value="${x.id}"${x.id === e.itemId ? " selected" : ""}>${esc(x.name)}</option>`).join("")}</select></td>
-    <td><select data-if="cat" aria-label="세부 항목">${catOptions(p, e.cat || "")}</select></td>
-    <td><input data-if="what" value="${v(e.what)}" placeholder="품목·내용" aria-label="품목·내용"><div class="two"><input data-if="note" value="${v(e.note)}" placeholder="비고" aria-label="비고"><select data-if="vendor" aria-label="거래처">${vendorOptions(e.vendor || "", false)}</select></div></td>
+    <td><select data-if="cat" aria-label="세부 항목">${catOptions(p, e.cat || "")}${ADD_OPT}</select></td>
+    <td><input data-if="what" list="pastWhat" autocomplete="off" value="${v(e.what)}" placeholder="품목·내용" aria-label="품목·내용"><div class="two"><input data-if="note" value="${v(e.note)}" placeholder="비고" aria-label="비고"><select data-if="vendor" aria-label="거래처">${vendorOptions(e.vendor || "", false)}</select></div></td>
     <td><input class="r" inputmode="numeric" data-if="price" data-money value="${money(e.price)}" placeholder="단가" aria-label="단가"></td>
     <td>${qp(1)}${qp(2)}${qp(3)}</td>
     <td><span class="amt num" data-iamt>${won(amountOf(e))}</span><input class="r" inputmode="numeric" data-if="paid" data-money value="${money(e.paid)}" placeholder="실제결제액" aria-label="실제결제액"></td>
     <td><select data-if="pay" aria-label="결제방법">${["학교카드", "계좌이체", "현금", "기타"].map((x) => `<option${x === e.pay ? " selected" : ""}>${x}</option>`).join("")}</select></td>
     <td class="c"><label class="chk"><input type="checkbox" data-if="proof"${e.proof ? " checked" : ""} aria-label="영수증 보관"></label></td>
-    <td class="c"><div class="acts"><button class="btn sm pri" type="button" data-isave="${e.id}">저장</button><button class="btn sm" type="button" data-icancel="${e.id}">취소</button></div><span class="imsg" aria-live="polite"></span></td></tr>`;
+    <td class="c"><div class="acts"><button class="btn sm pri" type="button" data-isave="${e.id}">${S.draft && S.draft.id === e.id ? "등록" : "저장"}</button><button class="btn sm" type="button" data-icancel="${e.id}">취소</button></div><span class="imsg" aria-live="polite"></span></td></tr>`;
 }
 function readInline(tr) {
   const g = (f) => tr.querySelector(`[data-if="${f}"]`), v = (f) => (g(f) ? g(f).value : "");
@@ -1173,13 +1177,13 @@ function readInline(tr) {
 }
 const inlineTr = () => (S.inline ? document.querySelector(`#entryList tr[data-inl="${S.inline}"]`) : null);
 function startInline(id) {
-  S.inline = id; S.inlineArmed = null; renderEntries();
-  const tr = inlineTr(); S.inlineSnap = tr ? JSON.stringify(readInline(tr)) : null;
+  fillPastWhat(); S.inline = id; S.inlineArmed = null; renderEntries();
+  const tr = inlineTr(); S.inlineSnap = tr ? JSON.stringify(readInline(tr)) : null; inlinePh(tr);
   if (tr) { tr.querySelector('[data-if="what"]').focus(); tr.scrollIntoView({ block: "nearest" }); }
 }
 // 수정 칸에서 바뀐 것이 있는지
 function inlineDirty() { const tr = inlineTr(); if (!tr || S.inlineSnap == null) return false; return JSON.stringify(readInline(tr)) !== S.inlineSnap; }
-function cancelInline() { S.inline = null; S.inlineArmed = null; showNotice(""); renderEntries(); }
+function cancelInline() { S.inline = null; S.draft = null; S.inlineArmed = null; showNotice(""); renderEntries(); }
 function saveInline(btn) {
   const tr = btn.closest("tr"), p = cur(), id = S.inline, e = readInline(tr), msg = tr.querySelector(".imsg");
   if (!e.what) { msg.textContent = "품목을 적어 주세요."; tr.querySelector('[data-if="what"]').focus(); return; }
@@ -1188,7 +1192,8 @@ function saveInline(btn) {
   const prev = S.editing; S.editing = id; const rest = restAfter(p, e); S.editing = prev;
   const sig = JSON.stringify(e);
   if (rest !== null && rest < 0 && S.inlineArmed !== sig) { S.inlineArmed = sig; btn.textContent = "초과해도 저장"; msg.textContent = `교부액보다 ${won(-rest)}원 많습니다. 한 번 더 누르면 저장합니다.`; return; }
-  Object.assign(p.entries.find((x) => x.id === id), e);
+  if (S.draft && S.draft.id === id) { p.entries.push({ ...S.draft, ...e }); S.draft = null; }
+  else Object.assign(p.entries.find((x) => x.id === id), e);
   S.inline = null; S.inlineArmed = null; S.flash = id; showNotice("");
   dirty(); refreshNumbers(); setTimeout(() => { S.flash = null; }, 2000);
 }
@@ -1214,6 +1219,7 @@ function renderSelBar() {
   const diff = sel.filter((e) => eduRow(e).diff !== 0), done = sel.filter((e) => e.eduAt);
   $("selWarn").innerHTML = (diff.length ? `<span class="tag no" title="${esc(diff.map((e) => e.what + " (차이 " + won(eduRow(e).diff) + "원)").join(", "))}">단가×수량 ≠ 금액 ${diff.length}건</span> ` : "") + (done.length ? `<span class="tag warn">이미 내려받은 지출 ${done.length}건 포함</span>` : "");
   $("eduBtn").disabled = !sel.length; $("selClear").disabled = !sel.length;
+  $("delRowsBtn").disabled = !sel.length; $("delRowsBtn").textContent = sel.length ? `행 삭제 (${sel.length})` : "행 삭제"; renderUndo();
   const vis = [...$("entryList").querySelectorAll("input[data-sel]")];
   $("selAll").checked = vis.length > 0 && vis.every((c) => c.checked); $("selAll").indeterminate = !$("selAll").checked && vis.some((c) => c.checked);
 }
@@ -1239,6 +1245,7 @@ function renderEntries() {
   const p = cur(), fid = $("entryFilter").value, cf = $("catFilter").value, sf = $("stFilter").value;
   const qty = (e) => [["q1", "u1"], ["q2", "u2"], ["q3", "u3"]].filter(([q]) => !blank(e[q])).map(([q, u]) => `${e[q]}${esc(e[u] || "")}`).join(" × ");
   let rows = [], no = 0, sum = 0;
+  if (S.draft && S.inline === S.draft.id) rows.push(inlineRow(p, S.draft, "새"));
   for (const it of p.items) {
     if (fid && it.id !== fid) continue;
     entriesOf(p, it.id).forEach((e, i) => {
@@ -1254,7 +1261,7 @@ function renderEntries() {
         <td class="c"><button class="btn sm" type="button" data-edit="${e.id}">수정</button> <button class="btn sm del" type="button" data-rm="${e.id}">삭제</button></td></tr>`);
     });
   }
-  $("entryList").innerHTML = rows.join("") || `<tr><td colspan="13" class="empty">${p.entries.length ? "고른 조건에 맞는 지출이 없습니다." : "등록된 지출이 없습니다. 위에서 지출을 등록하세요."}</td></tr>`;
+  $("entryList").innerHTML = rows.join("") || `<tr><td colspan="13" class="empty">${p.entries.length ? "고른 조건에 맞는 지출이 없습니다." : "등록된 지출이 없습니다. [+ 행 추가]를 누르거나 위 칸에 쇼핑몰 내역을 붙여 넣으세요."}</td></tr>`;
   $("entryCount").innerHTML = `총 <b>${no}</b>건 · 합계 <b class="num">${won(sum)}</b>원<span class="st-count">${[0, 1, 2].map((k) => `<span class="st st${k}">${ST_LABEL[k]} ${p.entries.filter((e) => stOf(e) === k).length}</span>`).join("")}</span>`;
   renderSelBar();
 }
@@ -1309,7 +1316,7 @@ function renderTabs() {
   $("pageTitle").textContent = TAB_NAME[S.tab]; $("crumb").textContent = TAB_NAME[S.tab];
 }
 function renderAll() {
-  S.inline = null; if (S.selProj !== S.curId) { S.sel = new Set(); S.selProj = S.curId; }
+  S.inline = null; S.draft = null; if (S.selProj !== S.curId) { S.sel = new Set(); S.selProj = S.curId; }
   renderProjSel(); renderSummary(); renderMeta(); renderItems(); renderItemSelect(); renderEntryFilter(); renderCatSelects(); renderCats(); renderEntries(); renderFmt(); renderReport(); renderTpl(); renderTabs(); renderQuick(); resetForm();
   $("withLedger").checked = !cur().tpl;
   $("dlBtn").disabled = !window.ExcelJS;
@@ -1750,6 +1757,101 @@ $("pasteResult").addEventListener("change", (ev) => {
 });
 $("pasteResult").addEventListener("click", (ev) => { if (ev.target.id === "pAdd") addPasteEntries(); });
 
+/* ---------- 행 추가 · 행 삭제 · 되돌리기 ---------- */
+function fillPastWhat() { const dl = $("pastWhat"); if (dl) dl.innerHTML = [...new Set(pastItems().map((x) => x.what))].slice(0, 300).map((w) => `<option value="${esc(w)}"></option>`).join(""); }
+function addRow() {
+  const p = cur();
+  if (!p.items.length) { showNotice("예산 설정에서 교부 항목(예: 운영비)을 먼저 추가해 주세요."); return; }
+  if (S.inline) return;
+  const fid = $("entryFilter").value, cf = $("catFilter").value;
+  S.draft = { id: newId(), date: today(), itemId: p.items.some((x) => x.id === fid) ? fid : p.items[0].id, cat: cf && cf !== "__none" ? cf : "", what: "", price: "", q1: "", u1: "", q2: "", u2: "", q3: "", u3: "", paid: "", vendor: "", pay: "학교카드", proof: true, note: "", status: 0 };
+  startInline(S.draft.id);
+  const tr = inlineTr(); if (tr) tr.scrollIntoView({ block: "center" });
+}
+function delRows() {
+  const p = cur(), ids = new Set([...S.sel].filter((id) => p.entries.some((e) => e.id === id)));
+  if (!ids.size) return;
+  p.entries = p.entries.filter((e) => !ids.has(e.id)); S.sel = new Set();
+  dirty(); refreshNumbers();
+  showNotice(`지출 ${ids.size}건을 삭제했습니다. 잘못 지웠으면 [되돌리기]를 누르세요.`);
+}
+// 되돌리기: 사업마다 지출·세부 항목의 이전 상태를 쌓아 둠
+const UNDO = { base: {}, stack: {} };
+const undoSnap = (p) => JSON.stringify({ entries: p.entries, cats: p.cats, catNote: p.catNote });
+function undoReset() { const p = cur(); if (p) UNDO.base[p.id] = undoSnap(p); renderUndo(); }
+function undoTrack() {
+  const p = cur(); if (!p) return;
+  const now = undoSnap(p), base = UNDO.base[p.id];
+  if (base !== undefined && base !== now) { const st = (UNDO.stack[p.id] = UNDO.stack[p.id] || []); st.push(base); if (st.length > 50) st.shift(); }
+  UNDO.base[p.id] = now; renderUndo();
+}
+function renderUndo() { const b = $("undoBtn"); if (!b) return; const p = cur(), n = p && UNDO.stack[p.id] ? UNDO.stack[p.id].length : 0; b.disabled = !n; b.title = n ? `방금 한 작업을 되돌립니다 (Ctrl+Z) · ${n}단계까지` : "되돌릴 작업이 없습니다"; }
+const __dirty0 = dirty;
+dirty = function () { const r = __dirty0.apply(this, arguments); undoTrack(); return r; };
+const __renderAll0 = renderAll;
+renderAll = function () { const r = __renderAll0.apply(this, arguments); undoReset(); return r; };
+function undo() {
+  const p = cur(), st = p && UNDO.stack[p.id]; if (!st || !st.length) return;
+  if (S.inline) { if (inlineDirty()) { showNotice(EDIT_MSG); return; } cancelInline(); }
+  const prev = st.pop(), s = JSON.parse(prev);
+  p.entries = s.entries; p.cats = s.cats; p.catNote = s.catNote;
+  if (p.cats === undefined) delete p.cats; if (p.catNote === undefined) delete p.catNote;
+  __dirty0(); renderAll(); UNDO.base[p.id] = prev; renderUndo();
+  showNotice(`되돌렸습니다.${st.length ? ` (${st.length}단계 더 되돌릴 수 있음)` : ""}`);
+}
+$("addRowBtn").addEventListener("click", addRow);
+$("delRowsBtn").addEventListener("click", delRows);
+$("undoBtn").addEventListener("click", undo);
+document.addEventListener("keydown", (ev) => {
+  if (!(ev.ctrlKey || ev.metaKey) || ev.shiftKey || ev.altKey || (ev.key || "").toLowerCase() !== "z" || ev.isComposing) return;
+  if (S.tab !== "ledger") return;
+  const t = ev.target; if (t && t.closest && t.closest("input, textarea, select, [contenteditable]")) return;
+  ev.preventDefault(); undo();
+});
+// 새 줄·수정 줄: 전에 쓴 품목을 고르면 단가·단위·세부 항목을 채움
+$("entryList").addEventListener("change", (ev) => {
+  const t = ev.target, tr = t.closest && t.closest("tr.inl"); if (!tr) return;
+  const g = (f) => tr.querySelector(`[data-if="${f}"]`);
+  if (t.dataset.if === "what") {
+    if (g("price").value || g("paid").value || g("q1").value) return;
+    const m = pastItems().find((x) => x.what === t.value.trim()); if (!m) return;
+    if (!blank(m.price)) g("price").value = won(m.price);
+    for (const k of ["u1", "u2", "u3"]) if (m[k]) g(k).value = m[k];
+    const has = (sel, v) => [...sel.options].some((o) => o.value === v);
+    if (m.cat && !g("cat").value && has(g("cat"), m.cat)) g("cat").value = m.cat;
+    if (m.vendor && !g("vendor").value && has(g("vendor"), m.vendor)) g("vendor").value = m.vendor;
+    g("price").dispatchEvent(new Event("input", { bubbles: true })); inlinePh(tr);
+    g("q1").focus();
+    return;
+  }
+  if (t.dataset.if === "cat" && t.value === "__add") {
+    t.value = t.dataset.prev || "";
+    const box = document.createElement("div"); box.className = "catadd";
+    box.innerHTML = `<input data-catnew placeholder="새 세부 항목" aria-label="새 세부 항목 이름"><button class="btn sm" type="button" data-catok>추가</button>`;
+    t.hidden = true; t.after(box);
+    const inp = box.querySelector("input"); inp.focus();
+    const close = () => { box.remove(); t.hidden = false; t.focus(); };
+    const ok = () => {
+      const v = inp.value.trim(); if (!v) { close(); return; }
+      const p = cur(), cats = catsOf(p); if (!cats.includes(v)) cats.push(v);
+      t.innerHTML = catOptions(p, v) + ADD_OPT; t.value = v; t.dataset.prev = v;
+      dirty(); renderCatSelects(); renderCats(); close();
+    };
+    inp.addEventListener("keydown", (e) => { if (e.isComposing) return; if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); ok(); } if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); } });
+    box.querySelector("[data-catok]").addEventListener("click", ok);
+  }
+});
+$("entryList").addEventListener("focusin", (ev) => { const t = ev.target; if (t.dataset && t.dataset.if === "cat") t.dataset.prev = t.value; });
+function inlinePh(tr) {
+  if (!tr) return; const qv = quickVals(cur());
+  for (const k of ["1", "2", "3"]) {
+    const q = tr.querySelector(`[data-if="q${k}"]`), u = tr.querySelector(`[data-if="u${k}"]`); if (!q || !u) continue;
+    const uu = u.value.trim(), hit = qv.find(([, x]) => x === uu);
+    q.placeholder = hit ? String(hit[0]) : "수량"; q.classList.toggle("ref", !!hit);
+    q.title = hit ? `참고: 사업 기본값 ${hit[0]}${uu} — 실제 수량을 직접 입력하세요` : "";
+  }
+}
+$("entryList").addEventListener("input", (ev) => { const t = ev.target; if (t.dataset && /^u[123]$/.test(t.dataset.if || "")) inlinePh(t.closest("tr.inl")); });
 /* ---------- 엑셀 내보내기 ---------- */
 const XF = (size, bold) => ({ name: "맑은 고딕", size, bold: !!bold });
 const NUMF = '_-* #,##0_-;\\-* #,##0_-;_-* "-"_-;_-@_-';
@@ -1869,7 +1971,8 @@ document.addEventListener("keydown", (ev) => { if (S.inline && ev.key === "Escap
 // 수정 중에는 다른 동작 막기
 const EDIT_MSG = "수정 중인 지출이 있습니다. 그 줄의 [저장] 또는 [취소]를 먼저 눌러 주세요.";
 function blockIfEditing(ev) {
-  // 바로 앞에서 처리한 누름의 뒤따르는 mousedown·click은 버림
+  // 바로 앞에서 처리한 누름의 뒤따르는 mousedown·click은 버림 (새로 누르기 시작하면 초기화)
+  if (ev.type === "pointerdown") S.swallow = 0;
   if (S.swallow && (ev.type === "mousedown" || ev.type === "click")) {
     if (Date.now() - S.swallow < 1000) { ev.preventDefault(); ev.stopPropagation(); ev.stopImmediatePropagation?.(); if (ev.type === "click") S.swallow = 0; return; }
     S.swallow = 0;
@@ -2150,5 +2253,6 @@ persist(); renderAll();
   addEventListener("scroll", close, true); addEventListener("resize", close);
 })();
 </script>
+<datalist id="pastWhat"></datalist>
 </body>
 </html>
